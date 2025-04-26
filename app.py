@@ -20,7 +20,7 @@ st.title("Quantum-Inspired Trading Bot Backtester")
 # --- Sidebar Controls ---
 st.sidebar.header("Backtest Configuration")
 ticker = st.sidebar.text_input("Ticker Symbol", "AAPL")  # Default ticker
-start_date_str = st.sidebar.date_input("Start Date", datetime(2023, 4, 25))
+start_date_str = st.sidebar.date_input("Start Date", datetime(2018, 4, 25))
 end_date_str = st.sidebar.date_input("End Date", datetime(2025, 4, 25))
 start_cash = st.sidebar.number_input(
     "Initial Cash", value=10000.0, min_value=100.0, step=1000.0
@@ -237,11 +237,12 @@ if run_button:
 
             # Plot buy signals
             if hasattr(strat, "buy_signals") and strat.buy_signals:
-                buy_dates, buy_prices = zip(*strat.buy_signals)
+                # Unpack all three elements: date, price, value
+                buy_dates, buy_prices, buy_values = zip(*strat.buy_signals)
                 # Black triangle for buy (drawn above line)
                 ax.scatter(
                     buy_dates,
-                    buy_prices,
+                    buy_prices,  # Use the unpacked prices
                     marker="^",
                     color="white",
                     s=70,
@@ -251,11 +252,12 @@ if run_button:
 
             # Plot sell signals
             if hasattr(strat, "sell_signals") and strat.sell_signals:
-                sell_dates, sell_prices = zip(*strat.sell_signals)
+                # Unpack all three elements: date, price, value
+                sell_dates, sell_prices, sell_values = zip(*strat.sell_signals)
                 # Black triangle down for sell (drawn above line)
                 ax.scatter(
                     sell_dates,
-                    sell_prices,
+                    sell_prices,  # Use the unpacked prices
                     marker="v",
                     color="grey",
                     s=70,
@@ -518,10 +520,11 @@ if run_button:
 
                         # Add buy/sell signals to the combined plot
                         if hasattr(strat, "buy_signals") and strat.buy_signals:
-                            buy_dates, buy_prices = zip(*strat.buy_signals)
+                            # Unpack all three elements
+                            buy_dates, buy_prices, _ = zip(*strat.buy_signals)
                             ax5.scatter(
                                 buy_dates,
-                                buy_prices,
+                                buy_prices,  # Use unpacked prices
                                 marker="^",
                                 color="white",
                                 edgecolor="green",
@@ -531,10 +534,11 @@ if run_button:
                             )
 
                         if hasattr(strat, "sell_signals") and strat.sell_signals:
-                            sell_dates, sell_prices = zip(*strat.sell_signals)
+                            # Unpack all three elements
+                            sell_dates, sell_prices, _ = zip(*strat.sell_signals)
                             ax5.scatter(
                                 sell_dates,
-                                sell_prices,
+                                sell_prices,  # Use unpacked prices
                                 marker="v",
                                 color="white",
                                 edgecolor="red",

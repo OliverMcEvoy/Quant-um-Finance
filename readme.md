@@ -247,6 +247,57 @@ $$
 
 where $\theta_p$ is the probability threshold parameter.
 
+## Complete Hamiltonian and Solution
+
+The complete Hamiltonian matrix $H$ combines the kinetic ($K$) and potential ($V$) terms:
+
+$$H = -K + V$$
+
+For a system discretized into $N$ price points (or time steps in the lookback window), the Hamiltonian is an $N \times N$ matrix. Its elements $H_{ij}$ are:
+
+$$
+H_{ij} =
+\begin{cases}
+-k_f(t) & \text{if } j = i+1 \text{ or } j = i-1 \\
+2k_f(t) + V_{ii} & \text{if } j = i \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+where $k_f(t)$ is the time-dependent kinetic factor and $V_{ii}$ is the diagonal potential energy at point $i$:
+
+$$V_{ii} = p_f \cdot (p_i - \bar{p})^2 - \sum_{w \in \text{wells}} d_w \cdot e^{-\frac{(p_i-c_w)^2}{w_w}}$$
+
+Explicitly, the matrix looks like:
+
+$$
+H =
+\begin{pmatrix}
+2k_f + V_{11} & -k_f & 0 & \cdots & 0 \\
+-k_f & 2k_f + V_{22} & -k_f & \cdots & 0 \\
+0 & -k_f & 2k_f + V_{33} & \cdots & 0 \\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+0 & 0 & 0 & \cdots & 2k_f + V_{NN}
+\end{pmatrix}
+$$
+
+The implementation uses a standard finite difference approximation to solve this matix
+
+### Solving the Eigenvalue Problem
+
+The core of the strategy involves solving the time-independent Schrödinger equation for this Hamiltonian at each time step:
+
+$$H \psi_n = E_n \psi_n$$
+
+This is a standard eigenvalue problem for a real, symmetric (Hermitian) matrix $H$. We seek the eigenvalues $E_n$ (representing energy levels or support/resistance) and the corresponding eigenvectors $\psi_n$ (representing the probability distribution of price states).
+
+Numerically, this is solved using standard linear algebra libraries, such as `scipy.linalg.eigh` in Python. This function efficiently computes the eigenvalues and eigenvectors of a Hermitian matrix. The function returns:
+
+1.  **Eigenvalues ($E_n$)**: A sorted array of the energy levels. The strategy typically focuses on a subset of these, particularly the lowest and highest, to represent primary support and resistance.
+2.  **Eigenvectors ($\psi_n$)**: A matrix where each column is an eigenvector corresponding to an eigenvalue. While not directly used for signal generation in this simplified strategy, they represent the "shape" of the market state at each energy level.
+
+The calculated eigenvalues $E_n$ are then mapped back to the price domain and used for generating the $S_{\text{buy}}$ and $S_{\text{sell}}$ signals as described previously. The time evolution aspect is handled by recalculating this Hamiltonian and its eigenvalues at each time step, incorporating the evolving potential wells and kinetic factor.
+
 ## References
 
 1. Quantum Mechanics, Claude Cohen-Tannoudji, Bernard Diu, Frank Laloë

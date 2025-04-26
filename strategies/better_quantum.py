@@ -15,7 +15,7 @@ class CustomQuantumStrategy(bt.Strategy):
     params = (
         # Core parameters
         ("sma_period", 10),  # Period for moving average calculation
-        ("prob_threshold", 0.6),  # Decision threshold
+        ("prob_threshold", 0.58),  # Decision threshold (lowered slightly)
         # Essential quantum parameters
         ("quantum_factor", 0.5),  # Controls overall quantum effect strength
         ("phase_period", 20),  # Period for phase analysis
@@ -49,17 +49,19 @@ class CustomQuantumStrategy(bt.Strategy):
         ),  # Sell when price within this % of highest eigenvalue
         (
             "eigenvalue_signal_weight",
-            0.6,
-        ),  # How much to weight eigenvalue signals vs quantum probability
+            0.65,  # Increased weight for eigenvalue signals
+        ),
+        # Variable sizing parameter
+        ("max_position_pct", 0.95),  # Max % of cash to use on a max strength buy signal
     )
 
     def __init__(self, *args, **kwargs):
         # ...existing code...
         super().__init__(*args, **kwargs)
-        # Trade tracking
-        self.buy_signals = []
-        self.sell_signals = []
-        self.trades = []
+        # Trade tracking (now storing dollar amounts)
+        self.buy_signals = []  # Stores (datetime, price, buy_value)
+        self.sell_signals = []  # Stores (datetime, price, sell_value)
+        self.trades = []  # Stores dict with buy/sell info including values
         self.current_trade = None
 
         # Moving average indicator
@@ -244,22 +246,33 @@ class CustomQuantumStrategy(bt.Strategy):
         # 5. TRADING DECISION
         if not self.position:  # Not in market
             if final_buy_prob > self.p.prob_threshold:
-                # Buy with all available cash
-                cash = self.broker.getcash() * 0.995
-                shares = int(cash / price)
+                # --- MODIFIED BUY SIZING ---
+                # Always use the maximum allowed percentage of cash
+                available_cash = self.broker.getcash()
+                cash_to_use = (
+                    available_cash * self.p.max_position_pct
+                )  # Use max allowed cash
+
+                # Calculate shares and actual buy value
+                shares = int(cash_to_use / price)
                 if shares > 0:
+                    buy_value = shares * price
                     self.buy(size=shares)
-                    self.buy_signals.append((dt, price))
+                    self.buy_signals.append((dt, price, buy_value))  # Store buy value
                     self.current_trade = {
                         "buy_date": dt,
                         "buy_price": price,
                         "shares": shares,
+                        "buy_value": buy_value,  # Store buy value in trade log
                     }
+                # --- END MODIFIED BUY SIZING ---
         else:  # In market
             if final_sell_prob > self.p.prob_threshold:
-                # Sell all shares
+                # Calculate sell value (based on current position size)
+                sell_value = self.position.size * price
+                # Sell all shares (already closes the entire position)
                 self.close()
-                self.sell_signals.append((dt, price))
+                self.sell_signals.append((dt, price, sell_value))  # Store sell value
 
                 # Record trade
                 if self.current_trade:
@@ -269,8 +282,12 @@ class CustomQuantumStrategy(bt.Strategy):
                         {
                             "buy_date": self.current_trade["buy_date"],
                             "buy_price": self.current_trade["buy_price"],
+                            "buy_value": self.current_trade[
+                                "buy_value"
+                            ],  # Add buy value
                             "sell_date": dt,
                             "sell_price": price,
+                            "sell_value": sell_value,  # Add sell value
                             "shares": self.current_trade["shares"],
                             "total_pnl": total_pnl,
                         }
@@ -688,13 +705,17 @@ class CustomQuantumStrategy(bt.Strategy):
             ), np.eye(self.p.eigenvalue_count)
 
     def get_wavefunction_data(self):
-        """Return the fitted wavefunction data along with dates and prices"""
+        """Return the fitted wavefunction data along with dates, prices, and trade signals"""
         # ...existing code...
 
         # Include eigenvalue signals for visualization
         eigenvalue_signal_data = (
             self.eigenvalue_signals if self.eigenvalue_signals else []
         )
+
+        # Ensure buy/sell signals are included (they now contain dollar amounts)
+        buy_signal_data = self.buy_signals if self.buy_signals else []
+        sell_signal_data = self.sell_signals if self.sell_signals else []
 
         return {
             "dates": self.dates,
@@ -713,4 +734,7 @@ class CustomQuantumStrategy(bt.Strategy):
                 self.potential_wells if hasattr(self, "potential_wells") else []
             ),
             "eigenvalue_signals": eigenvalue_signal_data,
+            "buy_signals": buy_signal_data,  # Include buy signals with values
+            "sell_signals": sell_signal_data,  # Include sell signals with values
+            "trades": self.trades,  # Include completed trade details with values
         }
