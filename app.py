@@ -9,6 +9,9 @@ import numpy as np
 # --- Import local modules ---
 from utils.data_fetcher import get_stock_data
 from strategies.quantum_momentum import QuantumMomentumStrategy  # Import the strategy
+from strategies.better_quantum import (
+    CustomQuantumStrategy,
+)  # Import the custom strategy
 
 # --- Streamlit App Configuration ---
 st.set_page_config(layout="wide")
@@ -25,16 +28,18 @@ start_cash = st.sidebar.number_input(
 
 # Strategy Selection (Add more strategies to the dictionary as you create them)
 available_strategies = {
-    "QuantumMomentum": QuantumMomentumStrategy
-    # "AnotherStrategy": AnotherStrategyClass
+    "CustomQuantum": CustomQuantumStrategy,
+    "QuantumMomentum": QuantumMomentumStrategy,
 }
 strategy_name = st.sidebar.selectbox(
     "Select Strategy", list(available_strategies.keys())
 )
 SelectedStrategy = available_strategies[strategy_name]
 
-# Strategy-specific parameters (Example for QuantumMomentum)
+# Strategy-specific parameters
 st.sidebar.subheader(f"{strategy_name} Parameters")
+strategy_params = {}
+
 if strategy_name == "QuantumMomentum":
     sma_period = st.sidebar.slider("SMA Period", 5, 50, 10)
     prob_threshold = st.sidebar.slider("Probability Threshold", 0.5, 0.95, 0.6, 0.01)
@@ -62,8 +67,51 @@ if strategy_name == "QuantumMomentum":
         "tunneling_threshold": tunneling_threshold,
         "superposition_count": superposition_count,
     }
-else:
-    strategy_params = {}
+
+elif strategy_name == "CustomQuantum":
+    sma_period = st.sidebar.slider("SMA Period", 5, 50, 10)
+    prob_threshold = st.sidebar.slider("Probability Threshold", 0.5, 0.95, 0.6, 0.01)
+    quantum_factor = st.sidebar.slider("Quantum Factor", 0.1, 1.0, 0.5, 0.05)
+    phase_period = st.sidebar.slider("Phase Period", 5, 50, 20)
+    uncertainty = st.sidebar.slider("Uncertainty Factor", 0.0, 1.0, 0.2, 0.05)
+    wf_components = st.sidebar.slider("Wavefunction Components", 1, 20, 5)
+    wf_lookback = st.sidebar.slider("Wavefunction Lookback", 20, 200, 50)
+
+    # Add new parameters for support/resistance eigenvalues
+    st.sidebar.subheader("Support/Resistance Parameters")
+    sr_lookback = st.sidebar.slider("S/R History Lookback", 60, 250, 120)
+    eigenvalue_smoothing = st.sidebar.slider(
+        "Eigenvalue Smoothing", 0.0, 1.0, 0.8, 0.05
+    )
+    price_history_weight = st.sidebar.slider(
+        "Price History Weight", 0.0, 1.0, 0.6, 0.05
+    )
+    eigenvalue_count = st.sidebar.slider("Support/Resistance Levels", 2, 10, 5)
+
+    # New time evolution parameters
+    st.sidebar.subheader("Time Evolution Parameters")
+    time_evolution_rate = st.sidebar.slider("Time Evolution Rate", 0.0, 1.0, 0.2, 0.05)
+    eigenvalue_persistence = st.sidebar.slider(
+        "Eigenvalue Persistence", 0.0, 1.0, 0.7, 0.05
+    )
+    memory_decay = st.sidebar.slider("Memory Decay", 0.0, 0.5, 0.05, 0.01)
+
+    strategy_params = {
+        "sma_period": sma_period,
+        "prob_threshold": prob_threshold,
+        "quantum_factor": quantum_factor,
+        "phase_period": phase_period,
+        "uncertainty": uncertainty,
+        "wf_components": wf_components,
+        "wf_lookback": wf_lookback,
+        "sr_lookback": sr_lookback,
+        "eigenvalue_smoothing": eigenvalue_smoothing,
+        "price_history_weight": price_history_weight,
+        "eigenvalue_count": eigenvalue_count,
+        "time_evolution_rate": time_evolution_rate,
+        "eigenvalue_persistence": eigenvalue_persistence,
+        "memory_decay": memory_decay,
+    }
 
 run_button = st.sidebar.button("Run Backtest")
 
@@ -249,11 +297,472 @@ if run_button:
             ax.set_ylabel("Price", fontsize=12, color="white", weight="bold")
             ax.set_xlabel("Date", fontsize=12)
             ax.set_ylabel("Price", fontsize=12)
-            ax.legend(loc="upper right", framealpha=0.7)
+            ax.legend(framealpha=0.3)
             # Ensure plot background is transparent when saving/displaying
             fig.patch.set_alpha(0.0)
             ax.patch.set_alpha(0.0)
             st.pyplot(fig)
+
+            # 6. Add Wavefunction Visualization for CustomQuantum Strategy
+            if strategy_name == "CustomQuantum" and hasattr(
+                strat, "get_wavefunction_data"
+            ):
+                st.subheader("Quantum Wavefunction Visualization")
+
+                # Get wavefunction data
+                wf_data = strat.get_wavefunction_data()
+
+                if len(wf_data["dates"]) > wf_data["wf_lookback"]:
+                    # Create wavefunction visualization (price + wavefunction only)
+                    fig2, ax2 = plt.subplots(figsize=(12, 6), facecolor="none")
+                    ax2.set_facecolor("none")
+
+                    # Plot price data
+                    ax2.plot(
+                        wf_data["dates"],
+                        wf_data["prices"],
+                        label="Actual Price",
+                        color="steelblue",
+                        alpha=0.7,
+                        linewidth=2,
+                    )
+
+                    # Plot wavefunction
+                    ax2.plot(
+                        wf_data["dates"],
+                        wf_data["wavefunction"],
+                        label="Quantum Wavefunction",
+                        color="#E833FF",
+                        linewidth=2,
+                    )
+
+                    # Format plot
+                    ax2.xaxis.set_major_locator(locator)
+                    ax2.xaxis.set_major_formatter(formatter)
+                    fig2.autofmt_xdate()
+
+                    # Style the plot
+                    for spine in ax2.spines.values():
+                        spine.set_color("white")
+                        spine.set_linewidth(2)
+
+                    ax2.tick_params(axis="x", colors="white", labelsize=12, width=2)
+                    ax2.tick_params(axis="y", colors="white", labelsize=12, width=2)
+                    ax2.set_xlabel("Date", fontsize=12, color="white", weight="bold")
+                    ax2.set_ylabel("Price", fontsize=12, color="white", weight="bold")
+                    ax2.legend(framealpha=0.3)
+
+                    # Ensure plot background is transparent
+                    fig2.patch.set_alpha(0.0)
+                    ax2.patch.set_alpha(0.0)
+
+                    st.pyplot(fig2)
+
+                    # Add a visualization of eigenvalue evolution over time without signals
+                    if "eigenvalue_history" in wf_data:
+                        st.subheader("Eigenvalue Evolution (Support/Resistance Levels)")
+
+                        # Create the clean eigenvalue visualization without signals
+                        fig4, ax4 = plt.subplots(figsize=(12, 6), facecolor="none")
+                        ax4.set_facecolor("none")
+
+                        # Get eigenvalue history and ensure it's the right length
+                        history = wf_data["eigenvalue_history"]
+                        full_date_range = wf_data["dates"]
+
+                        # Make sure we're using the full date range
+                        if len(history) != len(full_date_range):
+                            st.warning(
+                                f"Data length mismatch: {len(history)} eigenvalue points vs {len(full_date_range)} dates"
+                            )
+                            # Truncate to the shorter length to avoid errors
+                            min_length = min(len(history), len(full_date_range))
+                            history = history[:min_length]
+                            full_date_range = full_date_range[:min_length]
+
+                        # Find the first index where we have non-empty eigenvalues
+                        start_idx = 0
+                        for i, eig_vals in enumerate(history):
+                            if eig_vals:  # If not empty
+                                start_idx = i
+                                break
+
+                        # Plot each eigenvalue's evolution
+                        # First, determine the maximum number of eigenvalue levels
+                        max_levels = 0
+                        for h in history:
+                            if len(h) > max_levels:
+                                max_levels = len(h)
+
+                        max_levels = min(5, max_levels)  # Limit to 5 levels for clarity
+
+                        # Skip plotting if no eigenvalue data
+                        if max_levels > 0:
+                            # For each level, plot its evolution
+                            for i in range(max_levels):
+                                # Create arrays for valid data points
+                                valid_dates = []
+                                valid_values = []
+
+                                # Collect data points where this level exists
+                                for j, h in enumerate(history):
+                                    if j >= start_idx and i < len(h):
+                                        valid_dates.append(full_date_range[j])
+                                        valid_values.append(h[i])
+
+                                # Only plot if we have data
+                                if valid_dates:
+                                    color = plt.cm.rainbow(i / max(1, max_levels - 1))
+                                    ax4.plot(
+                                        valid_dates,
+                                        valid_values,
+                                        label=f"Energy Level {i+1}",
+                                        color=color,
+                                        linewidth=1,
+                                        alpha=0.8,
+                                        zorder=2,
+                                    )
+
+                        # Always plot price for reference
+                        ax4.plot(
+                            full_date_range,
+                            wf_data["prices"],
+                            label="Price",
+                            color="steelblue",
+                            linewidth=1.5,
+                            alpha=1,
+                            linestyle="-",
+                            zorder=1,
+                        )
+
+                        # Set x-axis limits to match the full date range
+                        ax4.set_xlim(full_date_range[0], full_date_range[-1])
+
+                        # Style the plot - use the same date formatter as other plots
+                        ax4.xaxis.set_major_locator(locator)
+                        ax4.xaxis.set_major_formatter(formatter)
+                        fig4.autofmt_xdate()
+
+                        # Style the plot
+                        for spine in ax4.spines.values():
+                            spine.set_color("white")
+                            spine.set_linewidth(2)
+
+                        ax4.tick_params(axis="x", colors="white", labelsize=12, width=2)
+                        ax4.tick_params(axis="y", colors="white", labelsize=12, width=2)
+                        ax4.set_xlabel(
+                            "Date", fontsize=12, color="white", weight="bold"
+                        )
+                        ax4.set_ylabel(
+                            "Price", fontsize=12, color="white", weight="bold"
+                        )
+                        ax4.legend(framealpha=0.3)
+
+                        # Ensure plot background is transparent
+                        fig4.patch.set_alpha(0.0)
+                        ax4.patch.set_alpha(0.0)
+
+                        st.pyplot(fig4)
+
+                        # Create a final combined visualization with all elements
+                        st.subheader("Combined Quantum Trading Visualization")
+
+                        fig5, ax5 = plt.subplots(figsize=(12, 6), facecolor="none")
+                        ax5.set_facecolor("none")
+
+                        # Plot price data
+                        ax5.plot(
+                            full_date_range,
+                            wf_data["prices"],
+                            label="Price",
+                            color="steelblue",
+                            linewidth=1.5,
+                            alpha=0.9,
+                            zorder=1,
+                        )
+
+                        # Plot wavefunction (with reduced opacity)
+                        ax5.plot(
+                            wf_data["dates"],
+                            wf_data["wavefunction"],
+                            label="Quantum Wavefunction",
+                            color="#E833FF",
+                            linewidth=1,
+                            alpha=0.5,
+                            zorder=2,
+                        )
+
+                        # Plot eigenvalues (with reduced opacity)
+                        if max_levels > 0:
+                            for i in range(max_levels):
+                                valid_dates = []
+                                valid_values = []
+
+                                for j, h in enumerate(history):
+                                    if j >= start_idx and i < len(h):
+                                        valid_dates.append(full_date_range[j])
+                                        valid_values.append(h[i])
+
+                                if valid_dates:
+                                    color = plt.cm.rainbow(i / max(1, max_levels - 1))
+                                    ax5.plot(
+                                        valid_dates,
+                                        valid_values,
+                                        label=f"Energy Level {i+1}" if i == 0 else None,
+                                        color=color,
+                                        linewidth=1,
+                                        alpha=0.6,
+                                        linestyle="--",
+                                        zorder=3,
+                                    )
+
+                        # Add buy/sell signals to the combined plot
+                        if hasattr(strat, "buy_signals") and strat.buy_signals:
+                            buy_dates, buy_prices = zip(*strat.buy_signals)
+                            ax5.scatter(
+                                buy_dates,
+                                buy_prices,
+                                marker="^",
+                                color="white",
+                                edgecolor="green",
+                                s=80,
+                                label="Buy Signals",
+                                zorder=5,
+                            )
+
+                        if hasattr(strat, "sell_signals") and strat.sell_signals:
+                            sell_dates, sell_prices = zip(*strat.sell_signals)
+                            ax5.scatter(
+                                sell_dates,
+                                sell_prices,
+                                marker="v",
+                                color="white",
+                                edgecolor="red",
+                                s=80,
+                                label="Sell Signals",
+                                zorder=5,
+                            )
+
+                        # Add trading signals overlay if they exist
+                        if (
+                            "eigenvalue_signals" in wf_data
+                            and wf_data["eigenvalue_signals"]
+                        ):
+                            ax_signals = ax5.twinx()
+                            signal_dates, buy_strengths, sell_strengths = zip(
+                                *wf_data["eigenvalue_signals"]
+                            )
+
+                            # Plot signals as partially transparent areas
+                            buy_color = "green"
+                            sell_color = "red"
+                            alpha = 0.1
+
+                            ax_signals.fill_between(
+                                signal_dates,
+                                0,
+                                buy_strengths,
+                                color=buy_color,
+                                alpha=alpha,
+                                label="Buy Signal Strength",
+                            )
+
+                            ax_signals.fill_between(
+                                signal_dates,
+                                0,
+                                sell_strengths,
+                                color=sell_color,
+                                alpha=alpha,
+                                label="Sell Signal Strength",
+                            )
+
+                            ax_signals.set_ylim(0, 1.0)
+                            ax_signals.set_ylabel("Signal Strength", color="white")
+                            ax_signals.tick_params(axis="y", colors="white")
+                            ax_signals.set_alpha(0.0)
+
+                        # Style and format the plot
+                        ax5.xaxis.set_major_locator(locator)
+                        ax5.xaxis.set_major_formatter(formatter)
+                        fig5.autofmt_xdate()
+
+                        for spine in ax5.spines.values():
+                            spine.set_color("white")
+                            spine.set_linewidth(2)
+
+                        ax5.tick_params(axis="x", colors="white", labelsize=12, width=2)
+                        ax5.tick_params(axis="y", colors="white", labelsize=12, width=2)
+                        ax5.set_xlabel(
+                            "Date", fontsize=12, color="white", weight="bold"
+                        )
+                        ax5.set_ylabel(
+                            "Price", fontsize=12, color="white", weight="bold"
+                        )
+
+                        # Create comprehensive legend
+                        handles, labels = ax5.get_legend_handles_labels()
+                        if (
+                            "eigenvalue_signals" in wf_data
+                            and wf_data["eigenvalue_signals"]
+                        ):
+                            sig_handles, sig_labels = (
+                                ax_signals.get_legend_handles_labels()
+                            )
+                            handles.extend(sig_handles)
+                            labels.extend(sig_labels)
+
+                        ax5.legend(
+                            handles=handles,
+                            labels=labels,
+                            framealpha=0.3,
+                            loc="upper left",
+                        )
+
+                        # Ensure plot background is transparent
+                        fig5.patch.set_alpha(0.0)
+                        ax5.patch.set_alpha(0.0)
+
+                        st.pyplot(fig5)
+
+                        # Add eigenvalue trading signals plot (original one)
+                        st.subheader("Eigenvalue Trading Signals")
+
+                        # Create trading signals visualization
+                        fig6, ax6 = plt.subplots(figsize=(12, 6), facecolor="none")
+                        ax6.set_facecolor("none")
+
+                        # Reuse the eigenvalue plotting code
+                        if max_levels > 0:
+                            for i in range(max_levels):
+                                valid_dates = []
+                                valid_values = []
+
+                                for j, h in enumerate(history):
+                                    if j >= start_idx and i < len(h):
+                                        valid_dates.append(full_date_range[j])
+                                        valid_values.append(h[i])
+
+                                if valid_dates:
+                                    color = plt.cm.rainbow(i / max(1, max_levels - 1))
+                                    ax6.plot(
+                                        valid_dates,
+                                        valid_values,
+                                        label=f"Energy Level {i+1}",
+                                        color=color,
+                                        linewidth=1,
+                                        alpha=0.8,
+                                        zorder=2,
+                                    )
+
+                        # Plot price
+                        ax6.plot(
+                            full_date_range,
+                            wf_data["prices"],
+                            label="Price",
+                            color="steelblue",
+                            linewidth=1.5,
+                            alpha=1,
+                            linestyle="-",
+                            zorder=1,
+                        )
+
+                        # Add eigenvalue trading signals to the plot
+                        if (
+                            "eigenvalue_signals" in wf_data
+                            and wf_data["eigenvalue_signals"]
+                        ):
+                            # Extract signal data
+                            signal_dates, buy_strengths, sell_strengths = zip(
+                                *wf_data["eigenvalue_signals"]
+                            )
+
+                            # Create a secondary y-axis for signal strength
+                            ax_signals = ax6.twinx()
+
+                            # Plot signals as partially transparent areas
+                            buy_color = "green"
+                            sell_color = "red"
+                            alpha = 0.3
+
+                            # Plot buy signals
+                            ax_signals.fill_between(
+                                signal_dates,
+                                0,
+                                buy_strengths,
+                                color=buy_color,
+                                alpha=alpha,
+                                label="Buy Signal",
+                            )
+
+                            # Plot sell signals
+                            ax_signals.fill_between(
+                                signal_dates,
+                                0,
+                                sell_strengths,
+                                color=sell_color,
+                                alpha=alpha,
+                                label="Sell Signal",
+                            )
+
+                            # Configure secondary axis
+                            ax_signals.set_ylim(0, 1.0)
+                            ax_signals.set_ylabel("Signal Strength", color="white")
+                            ax_signals.tick_params(axis="y", colors="white")
+
+                            # Add legend for signals
+                            handles, labels = ax_signals.get_legend_handles_labels()
+                            ax6.legend(
+                                handles=handles,
+                                labels=labels,
+                                loc="upper right",
+                                framealpha=0.0,
+                            )
+
+                        # Set x-axis limits to match the full date range
+                        ax6.set_xlim(full_date_range[0], full_date_range[-1])
+
+                        # Style the plot
+                        ax6.xaxis.set_major_locator(locator)
+                        ax6.xaxis.set_major_formatter(formatter)
+                        fig6.autofmt_xdate()
+
+                        for spine in ax6.spines.values():
+                            spine.set_color("white")
+                            spine.set_linewidth(2)
+
+                        ax6.tick_params(axis="x", colors="white", labelsize=12, width=2)
+                        ax6.tick_params(axis="y", colors="white", labelsize=12, width=2)
+                        ax6.set_xlabel(
+                            "Date", fontsize=12, color="white", weight="bold"
+                        )
+                        ax6.set_ylabel(
+                            "Price", fontsize=12, color="white", weight="bold"
+                        )
+                        ax6.legend(framealpha=0.3)
+
+                        # Ensure plot background is transparent
+                        fig6.patch.set_alpha(0.0)
+                        ax6.patch.set_alpha(0.0)
+
+                        st.pyplot(fig6)
+
+                    # Add explanation about eigenvalue trading
+                    st.markdown(
+                        """
+                    ### Eigenvalue-Based Trading Strategy
+                    
+                    The strategy now uses eigenvalues as quantum support and resistance levels:
+                    
+                    - **Buy signals** are generated when price approaches or falls below the lowest eigenvalue (quantum support)
+                    - **Sell signals** are generated when price approaches or rises above the highest eigenvalue (quantum resistance)
+                    - Signal strength is combined with the quantum probability to make final trading decisions
+                    
+                    This approach treats eigenvalues as energy states that price may naturally gravitate towards or bounce away from,
+                    similar to how electrons in atoms can only occupy certain discrete energy levels.
+                    """
+                    )
+
+                    # ...existing explanation code...
 
         elif data is None:
             st.error(
