@@ -29,7 +29,6 @@ start_cash = st.sidebar.number_input(
 # Strategy Selection (Add more strategies to the dictionary as you create them)
 available_strategies = {
     "CustomQuantum": CustomQuantumStrategy,
-    "QuantumMomentum": QuantumMomentumStrategy,
 }
 strategy_name = st.sidebar.selectbox(
     "Select Strategy", list(available_strategies.keys())
