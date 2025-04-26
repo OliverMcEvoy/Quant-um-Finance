@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter, AutoDateLocator
 import backtrader as bt
 import numpy as np
 
@@ -110,25 +111,128 @@ if run_button:
             cerebro.broker.setcommission(commission=0.001)
             st.write("Running backtest with backtrader...")
             with st.spinner("Backtest in progress..."):
-                cerebro.run()
+                strats = cerebro.run()
             st.write("Backtest complete.")
+            # Extract strategy instance to access buy/sell signals
+            strat = strats[0]
+
             # Get final portfolio value
             final_value = cerebro.broker.getvalue()
             results = {"Equity Final [$]": final_value}
 
             # 4. Display Basic Results
             st.subheader("Performance Metrics")
-            col1, col2 = st.columns(2)
-            col1.metric("Initial Portfolio Value", f"${start_cash:,.2f}")
-            col2.metric("Final Portfolio Value", f"${final_value:,.2f}")
+            # Use markdown for larger text and better layout control
+            st.markdown(
+                f"""
+            <div style="display: flex; justify-content: space-around; font-size: 1.5em; margin-bottom: 20px;">
+                <div style="text-align: center;">
+                    <strong>Initial Portfolio Value</strong><br>
+                    ${start_cash:,.2f}
+                </div>
+                <div style="text-align: center;">
+                    <strong>Final Portfolio Value</strong><br>
+                    ${final_value:,.2f}
+                </div>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
 
-            # 5. Plot Results
-            st.subheader("Portfolio Value Over Time")
-            try:
-                # backtrader doesn't have built-in streamlit support; plot manually
-                cerebro.plot(iplot=False)
-            except Exception:
-                st.warning("Interactive plotting may not be supported; skipping plot.")
+            # 5. Plot Price with Buy/Sell Signals
+            st.subheader("Price Chart with Buy/Sell Signals")
+            # Plot using Matplotlib
+            # Apply professional built-in matplotlib style
+            # plt.style.use("ggplot")
+            # Set transparent background
+            fig, ax = plt.subplots(figsize=(12, 6), facecolor="none")
+            ax.set_facecolor("none")
+            ax.grid(False)  # ← turn off all grid lines
+
+            # Plot closing price with styling
+            # Draw close price line with low z-order to sit behind markers
+            ax.plot(
+                bt_data.index,
+                bt_data["Close"],
+                label="Close Price",
+                color="steelblue",
+                linewidth=2,
+                zorder=1,
+            )
+            # Add grid for readability
+            # Improve date formatting
+            locator = AutoDateLocator()
+            formatter = DateFormatter("%Y-%m")
+            ax.xaxis.set_major_locator(locator)
+            ax.xaxis.set_major_formatter(formatter)
+            fig.autofmt_xdate()
+
+            # Plot buy signals
+            if hasattr(strat, "buy_signals") and strat.buy_signals:
+                buy_dates, buy_prices = zip(*strat.buy_signals)
+                # Black triangle for buy (drawn above line)
+                ax.scatter(
+                    buy_dates,
+                    buy_prices,
+                    marker="^",
+                    color="white",
+                    s=70,
+                    label="Buys",
+                    zorder=3,
+                )
+
+            # Plot sell signals
+            if hasattr(strat, "sell_signals") and strat.sell_signals:
+                sell_dates, sell_prices = zip(*strat.sell_signals)
+                # Black triangle down for sell (drawn above line)
+                ax.scatter(
+                    sell_dates,
+                    sell_prices,
+                    marker="v",
+                    color="grey",
+                    s=70,
+                    label="Sells",
+                    zorder=3,
+                )
+
+            # Annotate profit/loss for each completed trade
+            if hasattr(strat, "trades") and strat.trades:
+                for trade in strat.trades:
+                    dt = trade["sell_date"]
+                    price = trade["sell_price"]
+                    pnl = trade["pnl"]
+                    text_color = "g" if pnl >= 0 else "r"
+                    # Place P&L text above markers with highest z-order
+                    ax.annotate(
+                        f"{pnl:.2f}",
+                        xy=(dt, price),
+                        xytext=(0, 10),
+                        textcoords="offset points",
+                        ha="center",
+                        color=text_color,
+                        fontsize=12,
+                        fontweight="bold",  # ← make annotation text bold
+                        zorder=4,
+                    )
+                    # make spines white and bold
+            for spine in ax.spines.values():
+                spine.set_color("white")
+                spine.set_linewidth(2)
+
+            # ticks white and bold
+            ax.tick_params(axis="x", colors="white", labelsize=12, width=2)
+            ax.tick_params(axis="y", colors="white", labelsize=12, width=2)
+
+            # axis labels bold and white
+            ax.set_xlabel("Date", fontsize=12, color="white", weight="bold")
+            ax.set_ylabel("Price", fontsize=12, color="white", weight="bold")
+            ax.set_xlabel("Date", fontsize=12)
+            ax.set_ylabel("Price", fontsize=12)
+            ax.legend(loc="upper right", framealpha=0.7)
+            # Ensure plot background is transparent when saving/displaying
+            fig.patch.set_alpha(0.0)
+            ax.patch.set_alpha(0.0)
+            st.pyplot(fig)
 
         elif data is None:
             st.error(
