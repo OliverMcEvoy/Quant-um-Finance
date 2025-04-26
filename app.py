@@ -556,7 +556,7 @@ if run_button:
                             # Plot signals as partially transparent areas
                             buy_color = "green"
                             sell_color = "red"
-                            alpha = 0.1
+                            alpha = 0.2
 
                             ax_signals.fill_between(
                                 signal_dates,
@@ -743,8 +743,6 @@ if run_button:
                         # Ensure plot background is transparent
                         fig6.patch.set_alpha(0.0)
                         ax6.patch.set_alpha(0.0)
-
-                        st.pyplot(fig6)
 
                     # Add explanation about eigenvalue trading
                     st.markdown(
