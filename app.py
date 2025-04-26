@@ -17,8 +17,8 @@ st.title("Quantum-Inspired Trading Bot Backtester")
 # --- Sidebar Controls ---
 st.sidebar.header("Backtest Configuration")
 ticker = st.sidebar.text_input("Ticker Symbol", "AAPL")  # Default ticker
-start_date_str = st.sidebar.date_input("Start Date", datetime(2022, 1, 1))
-end_date_str = st.sidebar.date_input("End Date", datetime(2023, 1, 1))
+start_date_str = st.sidebar.date_input("Start Date", datetime(2023, 4, 25))
+end_date_str = st.sidebar.date_input("End Date", datetime(2025, 4, 25))
 start_cash = st.sidebar.number_input(
     "Initial Cash", value=10000.0, min_value=100.0, step=1000.0
 )
@@ -38,9 +38,29 @@ st.sidebar.subheader(f"{strategy_name} Parameters")
 if strategy_name == "QuantumMomentum":
     sma_period = st.sidebar.slider("SMA Period", 5, 50, 10)
     prob_threshold = st.sidebar.slider("Probability Threshold", 0.5, 0.95, 0.6, 0.01)
+    entanglement_lookback = st.sidebar.slider("Entanglement Lookback", 5, 50, 20)
+
+    # For phase periods, we'll use a multiselect with default values
+    phase_period_options = list(range(5, 51, 5))
+    default_phases = [5, 10, 20]
+    phase_periods = st.sidebar.multiselect(
+        "Phase Periods", options=phase_period_options, default=default_phases
+    )
+
+    interference_weight = st.sidebar.slider("Interference Weight", 0.0, 1.0, 0.5, 0.05)
+    uncertainty_factor = st.sidebar.slider("Uncertainty Factor", 0.0, 1.0, 0.2, 0.05)
+    tunneling_threshold = st.sidebar.slider("Tunneling Threshold", 0.5, 5.0, 2.0, 0.1)
+    superposition_count = st.sidebar.slider("Superposition Count", 1, 10, 3, 1)
+
     strategy_params = {
         "sma_period": sma_period,
         "prob_threshold": prob_threshold,
+        "entanglement_lookback": entanglement_lookback,
+        "phase_periods": phase_periods,
+        "interference_weight": interference_weight,
+        "uncertainty_factor": uncertainty_factor,
+        "tunneling_threshold": tunneling_threshold,
+        "superposition_count": superposition_count,
     }
 else:
     strategy_params = {}
@@ -200,18 +220,19 @@ if run_button:
                 for trade in strat.trades:
                     dt = trade["sell_date"]
                     price = trade["sell_price"]
-                    pnl = trade["pnl"]
+                    # Change from trade["pnl"] to trade["total_pnl"]
+                    pnl = trade["total_pnl"]
                     text_color = "g" if pnl >= 0 else "r"
                     # Place P&L text above markers with highest z-order
                     ax.annotate(
-                        f"{pnl:.2f}",
+                        f"${pnl:.2f}",  # Add dollar sign for clarity
                         xy=(dt, price),
                         xytext=(0, 10),
                         textcoords="offset points",
                         ha="center",
                         color=text_color,
                         fontsize=12,
-                        fontweight="bold",  # ← make annotation text bold
+                        fontweight="bold",
                         zorder=4,
                     )
                     # make spines white and bold
